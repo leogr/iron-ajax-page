@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+
+    <title>iron-ajax-page Demo</title>
+    <link rel="import" href="../../polymer/polymer.html">
+
+    <link rel="import" href="../../paper-styles/paper-styles.html">
+    <link rel="import" href="../../iron-demo-helpers/url-bar.html">
+    <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+    <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+
+    <link rel="import" href="../../iron-location/iron-location.html">
+    <link rel="import" href="../iron-ajax-page.html">
+
+    <style is="custom-style" include="demo-pages-shared-styles">
+        .centered {
+            max-width: 500px;
+        }
+
+        url-bar {
+            background-color: white;
+        }
+
+        iron-ajax-page {
+            display: block;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+
+<body unresolved>
+<url-bar></url-bar>
+
+<h4>Simple demo</h4>
+<demo-snippet class="centered">
+    <template>
+        <template is="dom-bind">
+            <a href="index.html">Index</a> -
+            <a href="page1.html">Page1</a> -
+            <a href="page2.html">Page2</a>
+
+            <iron-location path="{{path}}"></iron-location>
+
+            <iron-ajax-page
+                    src="[[path]]"
+                    loaded
+                    url-rewrite-pattern="^(.*)\.(.*)$"
+                    url-rewrite-substitution="$1.content.$2">
+                Index content (initial content)
+            </iron-ajax-page>
+        </template>
+    </template>
+</demo-snippet>
+</body>
+</html>

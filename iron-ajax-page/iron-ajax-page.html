@@ -1,0 +1,237 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-ajax/iron-request.html">
+<!--
+The `iron-ajax-page` is an element that grabs html from your server via ajax and replace its content.
+In its typical usage with `iron-location` for pushState, it can deliver a fast browsing experience
+with real permalinks and a working back button:
+
+    <iron-location path="{{path}}"></iron-location>
+    <iron-ajax-page src="[[path]]" loaded>
+        Initial content
+    </iron-ajax-page>
+
+The element performs a request whenever its `src` property is changed.
+
+With `loaded` set to `true`, the element assumes that the server sent the initial content already
+so it skips the first loading.
+You can trigger a request explicitly by calling `generateRequest` on the element.
+
+The example above assumes your server has been configured to look for `iron-ajax-page`'s requests
+and can send back the specific content.
+By default, an `X-Iron-Ajax-Page` header is attached to the generated request.
+Requests can be customized by `headers`, `params`, and `url-rewrite-*` properties.
+
+Furthermore, the element will force a full reload of the page if it receives an error or an empty response,
+assuming that the server's response hasn't been properly configured.
+
+
+@group Iron Elements
+@element iron-ajax-page
+@demo demo/index.html
+-->
+
+<dom-module id="iron-ajax-page">
+  <script>
+    'use strict';
+
+    Polymer({
+      is: 'iron-ajax-page',
+
+      properties: {
+
+    	/**
+         * The URL of the page to be loaded
+         */
+        src: {
+          type: String,
+          observer: '_srcChanged'
+        },
+
+        /**
+         * An object that contains HTTP headers to be appended
+         * when generating a request.
+         */
+        headers: {
+          type: Object,
+          value: function() {
+            return {
+              'X-Iron-Ajax-Page': true
+            };
+          }
+        },
+
+        /**
+         * An object that contains query parameters to be appended to the
+         * specified `src` when generating a request.
+         */
+        params: {
+          type: Object,
+          value: function() {
+            return {};
+          }
+        },
+
+        /**
+         * Indicate that content has been loaded.
+         *
+         * If true, the first loading is skipped.
+         */
+        loaded: {
+          type:Boolean,
+          value: false,
+          notify: true
+        },
+
+        /**
+         * Set the timeout flag on the request.
+         */
+        timeout: {
+          type: Number,
+          value: 0
+        },
+
+        /**
+         * Length of time in milliseconds to debounce multiple automatically generated requests.
+         */
+        debounceDuration: {
+          type: Number,
+          value: 0
+        },
+
+        /**
+         * The most recent request made by this iron-ajax-page element.
+         */
+        lastRequest: {
+          type: Object,
+          notify: true,
+          readOnly: true
+        },
+
+        /**
+         * A regexp that defines the pattern to rewrite URL to be loaded.
+         * The match is replaced by the value of `urlRewriteSubstitution`
+         */
+        urlRewritePattern: {
+          type: String
+        },
+
+        _urlRewriteRegex: {
+          computed: '_makeRegExp(urlRewritePattern)'
+        },
+
+        /**
+         * A string that replaces the substring received from the `urlRewritePattern`.
+         */
+        urlRewriteSubstitution: {
+          type: String
+        }
+
+      },
+
+      _firstLoad: true,
+
+      /**
+       * The query string that should be appended to the `src`, serialized from
+       * the current value of `params`.
+       *
+       * @return {string}
+       */
+      get queryString () {
+        var queryParts = [];
+        var param;
+        var value;
+        for (param in this.params) {
+          value = this.params[param];
+          param = window.encodeURIComponent(param);
+          if (Array.isArray(value)) {
+            for (var i = 0; i < value.length; i++) {
+              queryParts.push(param + '=' + window.encodeURIComponent(value[i]));
+            }
+          } else if (value !== null) {
+            queryParts.push(param + '=' + window.encodeURIComponent(value));
+          } else {
+            queryParts.push(param);
+          }
+        }
+        return queryParts.join('&');
+      },
+
+      /**
+       * The `src` with query string (if `params` are specified), suitable for
+       * providing to an `iron-request` instance.
+       *
+       * @return {string}
+       */
+      get requestUrl() {
+    	var url = this.src;
+        var queryString = this.queryString;
+        if (queryString) {
+          var bindingChar = url.indexOf('?') >= 0 ? '&' : '?';
+          url += bindingChar + queryString;
+        }
+
+        if (this._urlRewriteRegex) {
+          url = url.replace(this._urlRewriteRegex, this.urlRewriteSubstitution);
+        }
+
+        return url;
+      },
+
+      /**
+       * Performs an AJAX request to load the specified page.
+       *
+       * @return {!IronRequestElement}
+       */
+      generateRequest: function() {
+        var request = /** @type {!IronRequestElement} */ (document.createElement('iron-request'));
+    	this._setLastRequest(request);
+
+    	request.completes.then(
+    	  this._handleResponse.bind(this)
+    	).catch(
+    	  this._handleError.bind(this)
+    	);
+
+    	request.send({url: this.requestUrl, headers: this.headers, timeout: this.timeout});
+
+    	return request;
+      },
+
+      _handleResponse: function(request) {
+        if (request !== this.lastRequest) {
+          return;
+    	}
+
+        if (!request.succeeded || !request.response) {
+          this._handleError(request);
+          return;
+        }
+        var el = Polymer.dom(this);
+        el.innerHTML = '';
+        el.appendChild(document.createRange().createContextualFragment(request.response));
+        this.loaded = true;
+      },
+
+      _handleError: function(request, error) {
+    	 window.location = this.src;
+      },
+
+      _srcChanged: function() {
+    	if (!this.src) {
+          return;
+    	}
+    	if (this._firstLoad && this.loaded) {
+    	  this._firstLoad = false;
+    	  return;
+    	}
+    	this.loaded = false;
+    	this.debounce('generate-request', this.generateRequest, this.debounceDuration);
+      },
+
+      _makeRegExp: function(regex) {
+        return RegExp(regex);
+      }
+
+    });
+  </script>
+</dom-module>

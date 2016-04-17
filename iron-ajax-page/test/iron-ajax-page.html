@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+<head>
+  <title>iron-ajax-page</title>
+
+  <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+  <script src="../../web-component-tester/browser.js"></script>
+
+  <link rel="import" href="../../polymer/polymer.html">
+  <link rel="import" href="../../iron-test-helpers/mock-interactions.html">
+  <link rel="import" href="../iron-ajax-page.html">
+</head>
+<body>
+  <test-fixture id="Default">
+    <template>
+      <iron-ajax-page></iron-ajax-page>
+    </template>
+  </test-fixture>
+
+  <test-fixture id="LoadedAndSrc">
+    <template>
+      <iron-ajax-page src="/page" loaded>Initial Content</iron-ajax-page>
+    </template>
+  </test-fixture>
+
+
+  <script>
+    'use strict';
+
+    function timePasses(ms) {
+      return new Promise(function(resolve) {
+        window.setTimeout(function() {
+          resolve();
+        }, ms);
+      });
+    }
+
+    suite('<iron-ajax-page>', function () {
+      var ironAjaxPage;
+      var responseHeaders = {
+        html: { 'Content-Type': 'text/html' }
+      };
+      var request;
+      var server;
+
+      setup(function () {
+        server = sinon.fakeServer.create();
+        server.respondWith(
+                'GET',
+                /.*/,
+                [
+                  200,
+                  responseHeaders.html,
+                  'Hello!'
+                ]
+        );
+        ironAjaxPage = fixture('Default');
+      });
+
+      test('does not fetch content automatically', function () {
+        expect(ironAjaxPage.loaded).to.be.equal(false);
+        expect(ironAjaxPage.lastRequest).to.be.undefined;
+      });
+
+      test('has initial content', function () {
+        expect(ironAjaxPage.textContent).to.be.equal('');
+      });
+
+
+      suite('when `src` changes', function () {
+
+        setup(function() {
+          ironAjaxPage = fixture('Default');
+          ironAjaxPage.src = '/test';
+        });
+        teardown(function() {
+          server.restore();
+        });
+
+        test('loads expected content', function() {
+          return timePasses(1).then(function() {
+            server.respond();
+            return timePasses(1).then(function() {
+              expect(ironAjaxPage.loaded).to.be.true;
+              expect(ironAjaxPage.lastRequest.response).to.be.equal('Hello!');
+              expect(ironAjaxPage.textContent).to.be.equal('Hello!');
+            });
+          });
+        });
+
+        test('sends default header', function() {
+          return timePasses(1).then(function() {
+            server.respond();
+            return timePasses(1).then(function() {
+              expect(ironAjaxPage.loaded).to.be.true;
+              expect(ironAjaxPage.lastRequest.xhr.requestHeaders['x-iron-ajax-page']).to.be.true;
+            });
+          });
+        });
+
+      });
+
+    });
+
+    suite('<iron-ajax-page src="/page" loaded>Initial Content</iron-ajax-page>', function () {
+      var ironAjaxPage;
+      var responseHeaders = {
+        html: { 'Content-Type': 'text/html' }
+      };
+      var request;
+      var server;
+
+      setup(function () {
+        server = sinon.fakeServer.create();
+        server.respondWith(
+                'GET',
+                /.*/,
+                [
+                  200,
+                  responseHeaders.html,
+                  'Hello!'
+                ]
+        );
+        ironAjaxPage = fixture('LoadedAndSrc');
+      });
+
+      test('does not fetch content automatically', function () {
+        expect(ironAjaxPage.lastRequest).to.be.undefined;
+      });
+
+      test('has initial content', function () {
+        expect(ironAjaxPage.textContent).to.be.equal('Initial Content');
+      });
+
+
+      suite('when making a simple request', function () {
+
+        setup(function() {
+          ironAjaxPage = fixture('LoadedAndSrc');
+        });
+        teardown(function() {
+          server.restore();
+        });
+
+        test('has sane defaults that love you', function() {
+          expect(ironAjaxPage.textContent).to.be.equal('Initial Content');
+          expect(ironAjaxPage.lastRequest).to.be.undefined;
+          request = ironAjaxPage.generateRequest();
+          server.respond();
+          expect(request.response).to.be.ok;
+          expect(request.response).to.be.an('string');
+          expect(ironAjaxPage.lastRequest).to.be.equal(request);
+        });
+
+        test('loads expected content', function() {
+          request = ironAjaxPage.generateRequest();
+          server.respond();
+          return timePasses(1).then(function() {
+            expect(request.response).to.be.equal('Hello!');
+            expect(ironAjaxPage.textContent).to.be.equal('Hello!');
+          });
+        });
+
+      });
+
+    });
+
+
+  </script>
+</body>
